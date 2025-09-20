@@ -1,15 +1,29 @@
-import { eq } from 'drizzle-orm';
+import { eq, ilike, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { booksTable } from '../models/book.model.js';
+import { authorTable } from '../models/author.model.js';
 
 export const getAllBooks = async (req, res) => {
+    const search = req.query.search;
+    console.log(search)
+    if(search) {
+        const searchedBooks = await db
+            .select()
+            .from(booksTable)
+            .where(sql`to_tsvector('english', ${booksTable.title}) @@ to_tsquery('english', ${search})`)
+        return res.json(searchedBooks);
+    }
     const allBooks = await db.select().from(booksTable);
     return res.json(allBooks);
 };
 
 export const getBookById = async (req, res) =>{
     const id = req.params.id;
-    const [book] = await db.select().from(booksTable).where((table) => eq(table.id, id));
+    const [book] = await db
+        .select()
+        .from(booksTable)
+        .where((table) => eq(table.id, id))
+        .leftJoin(authorTable, eq(booksTable.authorId, authorTable.id));
 
     if (!book) {
         return res.status(400).json({ error: `Book with id:${id} does not exists!`})
